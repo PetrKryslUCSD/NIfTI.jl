@@ -85,7 +85,7 @@ mutable struct NIfTI1Header
 
     intent_name::NTuple{16,UInt8}
 
-    magic::NTuple{4,UInt8}
+    magic::NTuple{4,UInt8} # See the https://nifti.nimh.nih.gov/pub/dist/src/niftilib/nifti1.h
 end
 define_packed(NIfTI1Header)
 
@@ -494,6 +494,7 @@ function niread(file::AbstractString; mmap::Bool=false, mode::AbstractString="r"
         end
 
     local volume
+    
     if header.magic == NP1_MAGIC
         if mmap
             if header_gzipped
@@ -543,6 +544,22 @@ function niread(file::AbstractString; mmap::Bool=false, mode::AbstractString="r"
                 volume = read!(volume_io, ArrayType(undef, dims))
             end
             close(volume_io)
+        end
+    else # https://nifti.nimh.nih.gov/pub/dist/src/niftilib/nifti1.h: This may be an Analyze 7.5 file when no magic is matched
+        if mmap
+            error("cannot mmap: this is an Analyze 7.5, not a NIfTI file")
+        else
+            volume_name = replace(file, r"\.\w+(\.gz)?$" => "")*".img"
+            if !isfile(volume_name)
+                error("Analyze 7.5 $volume_name does not exist")
+            end
+
+            volume_io = open(volume_name, mode)
+            volume = read!(volume_io, ArrayType(undef, dims))
+
+            close(volume_io)
+            close(header_io)
+            close(file_io)
         end
     end
     if swapped && sizeof(eltype(volume)) > 1
