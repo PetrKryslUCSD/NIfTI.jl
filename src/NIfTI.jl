@@ -144,13 +144,17 @@ mutable struct NIVolume{T<:Number,N,R} <: AbstractArray{T,N}
     header::NIfTI1Header
     extensions::Vector{NIfTI1Extension}
     raw::R
-
 end
-NIVolume(header::NIfTI1Header, extensions::Vector{NIfTI1Extension}, raw::R) where {R}=
-    niupdate(new(header, extensions, raw))
 
-NIVolume(header::NIfTI1Header, extensions::Vector{NIfTI1Extension}, raw::AbstractArray{T,N}) where {T<:Number,N} =
-    NIVolume{typeof(one(T)*1f0+1f0),N,typeof(raw)}(header, extensions, raw)
+NIVolume(header::NIfTI1Header, extensions::Vector{NIfTI1Extension}, raw::R) where {R} = let
+    niupdate(new(header, extensions, raw))
+end
+
+NIVolume(header::NIfTI1Header, extensions::Vector{NIfTI1Extension}, raw::AbstractArray{T,N}) where {T<:Number,N} = let
+    NIVolume{T,N,typeof(raw)}(header, extensions, raw)
+    # Why is this not using T? That is the type of the `raw` array!?
+    #NIVolume{typeof(one(T)*1f0+1f0),N,typeof(raw)}(header, extensions, raw)
+end
 NIVolume(header::NIfTI1Header, raw::AbstractArray{T,N}) where {T<:Number,N} =
     NIVolume{typeof(one(T)*1f0+1f0),N,typeof(raw)}(header, NIfTI1Extension[], raw)
 NIVolume(header::NIfTI1Header, extensions::Vector{NIfTI1Extension}, raw::AbstractArray{Bool,N}) where {N} =
@@ -330,6 +334,7 @@ function NIVolume(
     qoffset_x::Real=0f0, qoffset_y::Real=0f0, qoffset_z::Real=0f0,
     # Orientation matrix for Method 3
     orientation::Union{Matrix{Float32},Nothing}=nothing) where {T <: Number}
+
     local t
     if isempty(raw)
         raw = Int16[]
@@ -363,7 +368,7 @@ function NIVolume(
         slice_end = size(raw, dim_info[3]) - 1
     end
 
-    NIVolume(NIfTI1Header(SIZEOF_HDR, string_tuple(data_type, 10), string_tuple(db_name, 18), extents, session_error,
+    hdr = NIfTI1Header(SIZEOF_HDR, string_tuple(data_type, 10), string_tuple(db_name, 18), extents, session_error,
         regular, to_dim_info(dim_info), nidim(raw), intent_p1, intent_p2,
         intent_p3, intent_code, nidatatype(t), nibitpix(t),
         slice_start, (qfac, voxel_size..., time_step, 0, 0, 0), 352,
@@ -372,7 +377,9 @@ function NIVolume(
         toffset, glmax, glmin, string_tuple(descrip, 80), string_tuple(aux_file, 24), (method2 || method3),
         method3, quatern_b, quatern_c, quatern_d,
         qoffset_x, qoffset_y, qoffset_z, (orientation[1, :]...,),
-        (orientation[2, :]...,), (orientation[3, :]...,), string_tuple(intent_name, 16), NP1_MAGIC), extensions, raw)
+        (orientation[2, :]...,), (orientation[3, :]...,), string_tuple(intent_name, 16), NP1_MAGIC)
+    vol = NIVolume(hdr, extensions, raw)
+    return vol
 end
 
 # Calculates the size of a NIfTI extension
