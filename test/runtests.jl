@@ -28,7 +28,7 @@ for (fname, mmap) in ((NII, false), (NII, true), (HDR, false), (HDR, true),
 
 	# Header
 	@test time_step(file.header) == 2000000 # Actually an error in the file AFAIK
-  @test voxel_size(file.header) ≈ Float32[2.0, 2.0, 2.2]
+    @test voxel_size(file.header) ≈ Float32[2.0, 2.0, 2.2]
 	@test size(file) == (128, 96, 24, 2)
 
 	# Content
